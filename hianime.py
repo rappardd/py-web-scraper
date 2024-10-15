@@ -5,15 +5,55 @@ import os
 
 USER_DOWNLOADS = os.path.join(os.path.expanduser("~"), "Downloads")
 
-def extract_episode_info(episode_url):
+def get_anime_episodes(anime_id):
     try:
         # pass arguments to the hianime.js script
-        result = subprocess.run(['node', 'hianime.js', episode_url, 'hd-1', 'sub'], capture_output=True, text=True)
+        result = subprocess.run(['node', 'test.js', anime_id], capture_output=True, text=True)
+        
+        # Split the output into lines
+        lines = result.stdout.split('\n')
+        
+        # Join the remaining lines to form the JSON string
+        json_str = '\n'.join(lines[:-1])
 
-        print("STDOUT:")
-        print(result.stdout)
-        print("STDERR:")
-        print(result.stderr)
+        try:
+            data = json.loads(json_str)
+            return data
+        
+        except json.JSONDecodeError:
+            print("Error: Invalid JSON data")
+            return None
+    
+    except Exception as e:
+        print(f"Error running hianime.js: {e}")
+        return None
+
+def get_episode_title(data):
+    print(data)
+    if 'episodes' in data and len(data['episodes']) > 0:
+        return data['episodes'][0]['title']
+    else:
+        print("No episodes found in the JSON data")
+        return None
+    
+def get_episode_id(data):
+    if 'episodes' in data and len(data['episodes']) > 0:
+        return data['episodes'][0]['episodeId']
+    else:
+        print("No episodes found in the JSON data")
+        return None
+    
+def get_episode_number(data):
+    if 'episodes' in data and len(data['episodes']) > 0:
+        return data['episodes'][0]['number']
+    else:
+        print("No episodes found in the JSON data")
+        return None
+
+def get_episode_stream_info(episode_id):
+    try:
+        # pass arguments to the hianime.js script
+        result = subprocess.run(['node', 'hianime.js', episode_id, 'hd-1', 'sub'], capture_output=True, text=True)
         
         # Split the output into lines
         lines = result.stdout.split('\n')
@@ -32,8 +72,11 @@ def extract_episode_info(episode_url):
             # parse the JSON output
             data = json.loads(json_str)
             return data
+        
         except json.JSONDecodeError:
             print("Error: Invalid JSON data")
+            return None
+    
     except Exception as e:
         print(f"Error running hianime.js: {e}")
         return None
@@ -77,8 +120,9 @@ def download_subtitles(subtitles_url, file_name):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Extract information from HiAnime episodes')
-    parser.add_argument('slug', help='The slug of the anime series')
+    parser.add_argument('slug', help='The slug of the anime series') 
     parser.add_argument('playlist_id', help='The playlist ID of the anime series')
+    # parser.add_argument('anime_id', help='The uniqueID of the anime series (e.g. slug-playlistId)')
     parser.add_argument('--start', type=int, help='Starting episode number')
     parser.add_argument('--end', type=int, help='Ending episode number')
     parser.add_argument('--episode', type=int, help='Single episode number to extract')
@@ -92,25 +136,30 @@ if __name__ == "__main__":
         print("Please specify either a single episode or a range of episodes.")
         exit(1)
 
-    # fetch the title and episodeId using the hianime api
-    try:
-        result = subprocess.run(['node', 'test.js', args.slug, args.playlist_id], capture_output=True, text=True)
-        print(result.stdout)
-    except Exception as e:
-        print(f"Error running test.js: {e}")
+    anime_info = get_anime_episodes(args.slug + "-" + args.playlist_id)
+    anime_title = "Berserk"
+    year = "1997"
+    season = "01"
+    episode_title = get_episode_title(anime_info)
+    episode_id = get_episode_id(anime_info) 
+    episode_number = get_episode_number(anime_info)
+    print(episode_title)
+    print(episode_id)
+    print(episode_number)
 
-    for ep in episodes:
-        episode_url = f'{args.slug}-{args.playlist_id}?ep={ep}'
+    for ep in episodes: 
         print(f"\nExtracting information for episode {ep}")
         
-        data = extract_episode_info(episode_url)
-        print(data)
+        data = get_episode_stream_info(episode_id)
+        # print(data)
         stream_url = extract_stream_url(data)
         print(stream_url)
         subtitles_url = extract_subtitles_url(data)
         print(subtitles_url)
 
         if stream_url:
-            download_streams(stream_url, f"{args.slug}-{ep}.mp4")
+            print(f"Downloading episode: {anime_title} ({year}) - S{season}E{episode_number} - {episode_title}")
+            # download_streams(stream_url, f"{anime_title} ({year}) - S{season}E{episode_number} - {episode_title}.mp4")
+            print("Success!")
         # if subtitles_url:
         #     download_subtitles(subtitles_url, f"{args.slug}-{ep}.vtt")

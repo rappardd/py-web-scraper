@@ -2,8 +2,6 @@ import { HiAnime } from "aniwatch";
 
 const hianime = new HiAnime.Scraper();
 
-// const slug = process.argv[2];
-// const episode = process.argv[3];
 const episode = process.argv[2]
 const quality = process.argv[3];
 const subtitle = process.argv[4];
