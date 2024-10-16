@@ -3,6 +3,10 @@ import argparse
 import json
 import os
 
+# features to add:
+# - download subtitles
+# - save list of episodes downloaded so that if the script is run again, it doesn't redownload the episodes
+
 USER_DOWNLOADS = os.path.join(os.path.expanduser("~"), "Downloads")
 
 def get_anime_episodes(anime_id):
@@ -21,7 +25,7 @@ def get_anime_episodes(anime_id):
             return data
         
         except json.JSONDecodeError:
-            print("Error: Invalid JSON data")
+            print("Error: Invalid JSON data (anime episodes)")
             return None
     
     except Exception as e:
@@ -29,7 +33,6 @@ def get_anime_episodes(anime_id):
         return None
 
 def get_episode_title(data):
-    print(data)
     if 'episodes' in data and len(data['episodes']) > 0:
         return data['episodes'][0]['title']
     else:
@@ -74,7 +77,7 @@ def get_episode_stream_info(episode_id):
             return data
         
         except json.JSONDecodeError:
-            print("Error: Invalid JSON data")
+            print("Error: Invalid JSON data (episode stream info)")
             return None
     
     except Exception as e:
@@ -120,9 +123,10 @@ def download_subtitles(subtitles_url, file_name):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Extract information from HiAnime episodes')
-    parser.add_argument('slug', help='The slug of the anime series') 
-    parser.add_argument('playlist_id', help='The playlist ID of the anime series')
-    # parser.add_argument('anime_id', help='The uniqueID of the anime series (e.g. slug-playlistId)')
+    # parser.add_argument('slug', help='The slug of the anime series') 
+    # parser.add_argument('playlist_id', help='The playlist ID of the anime series')
+    parser.add_argument('anime_id', help='The uniqueID of the anime series (e.g. slug-playlistId)')
+    parser.add_argument('--all', action='store_true', help='Download all episodes')
     parser.add_argument('--start', type=int, help='Starting episode number')
     parser.add_argument('--end', type=int, help='Ending episode number')
     parser.add_argument('--episode', type=int, help='Single episode number to extract')
@@ -130,13 +134,20 @@ if __name__ == "__main__":
         
     if args.episode:
         episodes = [args.episode]
+    elif args.all:
+        # get the number of episodes in the anime
+        # check if the episodes have already been downloaded
+        # if not, download the episodes 
+        # if already downloaded, skip them
+
+        episodes = range(1, 100)
     elif args.start and args.end:
         episodes = range(args.start, args.end + 1)
     else:
         print("Please specify either a single episode or a range of episodes.")
         exit(1)
 
-    anime_info = get_anime_episodes(args.slug + "-" + args.playlist_id)
+    anime_info = get_anime_episodes(args.anime_id)
     anime_title = "Berserk"
     year = "1997"
     season = "01"
@@ -150,7 +161,7 @@ if __name__ == "__main__":
     for ep in episodes: 
         print(f"\nExtracting information for episode {ep}")
         
-        data = get_episode_stream_info(episode_id)
+        data = get_episode_stream_info(f"{args.anime_id}?ep={ep}")
         # print(data)
         stream_url = extract_stream_url(data)
         print(stream_url)
@@ -158,7 +169,7 @@ if __name__ == "__main__":
         print(subtitles_url)
 
         if stream_url:
-            print(f"Downloading episode: {anime_title} ({year}) - S{season}E{episode_number} - {episode_title}")
+            print(f"Downloading episode: {anime_title} ({year}) - S{season}E{ep} - {episode_title}")
             # download_streams(stream_url, f"{anime_title} ({year}) - S{season}E{episode_number} - {episode_title}.mp4")
             print("Success!")
         # if subtitles_url:
