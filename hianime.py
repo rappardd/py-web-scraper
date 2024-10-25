@@ -32,27 +32,31 @@ def get_anime_episodes(anime_id):
         print(f"Error running hianime.js: {e}")
         return None
 
-def get_episode_title(data):
+# extract the episode title from the JSON data
+def get_episode_title(data, ep_number):
     if 'episodes' in data and len(data['episodes']) > 0:
-        return data['episodes'][0]['title']
+        return data['episodes'][ep_number-1]['title']
     else:
         print("No episodes found in the JSON data")
         return None
     
-def get_episode_id(data):
+# extract the episode id from the JSON data
+def get_episode_id(data, ep_number):
     if 'episodes' in data and len(data['episodes']) > 0:
-        return data['episodes'][0]['episodeId']
+        return data['episodes'][ep_number-1]['episodeId']
     else:
         print("No episodes found in the JSON data")
         return None
     
-def get_episode_number(data):
+# extract the episode number from the JSON data
+def get_episode_number(data, ep_number):
     if 'episodes' in data and len(data['episodes']) > 0:
-        return data['episodes'][0]['number']
+        return data['episodes'][ep_number-1]['number']
     else:
         print("No episodes found in the JSON data")
         return None
 
+# get the stream info for the episode
 def get_episode_stream_info(episode_id):
     try:
         # pass arguments to the hianime.js script
@@ -84,6 +88,7 @@ def get_episode_stream_info(episode_id):
         print(f"Error running hianime.js: {e}")
         return None
     
+# extract the stream url from the JSON data
 def extract_stream_url(data):
     # Extract the URL from the first source in the sources array
     if 'sources' in data and len(data['sources']) > 0:
@@ -93,6 +98,7 @@ def extract_stream_url(data):
     else:
         print("No sources found in the JSON data")
     
+# extract the subtitles url from the JSON data
 def extract_subtitles_url(data):
     # Extract the file name from the first tracks in the tracks array
     if 'tracks' in data and len(data['tracks']) > 0:
@@ -120,6 +126,22 @@ def download_subtitles(subtitles_url, file_name):
     except Exception as e:
         print(f"Error downloading subtitles: {e}")
 
+def save_downloaded_episodes(anime_id, episode):
+    try:
+        with open("downloaded_episodes.json", "r") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        data = {"anime_id": anime_id, "episodes": []}
+
+    if data["anime_id"] == anime_id:
+        if episode not in data["episodes"]:
+            data["episodes"] += [episode]
+    else:
+        data = {"anime_id": anime_id, "episodes": [episode]}
+
+    with open("downloaded_episodes.json", "w") as f:
+        json.dump(data, f, indent=2)
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Extract information from HiAnime episodes')
@@ -140,7 +162,7 @@ if __name__ == "__main__":
         # if not, download the episodes 
         # if already downloaded, skip them
 
-        episodes = range(1, 100)
+        episodes = range(1, 99)
     elif args.start and args.end:
         episodes = range(args.start, args.end + 1)
     else:
@@ -151,15 +173,18 @@ if __name__ == "__main__":
     anime_title = "Berserk"
     year = "1997"
     season = "01"
-    episode_title = get_episode_title(anime_info)
-    episode_id = get_episode_id(anime_info) 
-    episode_number = get_episode_number(anime_info)
-    print(episode_title)
-    print(episode_id)
-    print(episode_number)
 
-    for ep in episodes: 
+
+    for ep in episodes:
         print(f"\nExtracting information for episode {ep}")
+        episode_title = get_episode_title(anime_info, ep)
+        episode_id = get_episode_id(anime_info, ep) 
+        episode_number = get_episode_number(anime_info, ep)
+        print("Title:", episode_title)
+        print("ID:", episode_id)
+        print("Number:", episode_number)
+
+        # print(f"\nExtracting information for episode {ep}")
         
         data = get_episode_stream_info(f"{args.anime_id}?ep={ep}")
         # print(data)
@@ -171,6 +196,7 @@ if __name__ == "__main__":
         if stream_url:
             print(f"Downloading episode: {anime_title} ({year}) - S{season}E{ep} - {episode_title}")
             # download_streams(stream_url, f"{anime_title} ({year}) - S{season}E{episode_number} - {episode_title}.mp4")
-            print("Success!")
+            # if download is successful, add the episode to the list of downloaded episodes
+            save_downloaded_episodes(args.anime_id, ep)
         # if subtitles_url:
         #     download_subtitles(subtitles_url, f"{args.slug}-{ep}.vtt")
