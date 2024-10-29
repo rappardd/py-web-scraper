@@ -140,7 +140,7 @@ def save_downloaded_episodes(anime_id, episode):
         data = {"anime_id": anime_id, "episodes": [episode]}
 
     with open("downloaded_episodes.json", "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f)
 
 if __name__ == "__main__":
 
