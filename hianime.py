@@ -2,12 +2,27 @@ import subprocess
 import argparse
 import json
 import os
+import re
 
 # features to add:
 # - download subtitles
 # - save list of episodes downloaded so that if the script is run again, it doesn't redownload the episodes
 
 USER_DOWNLOADS = os.path.join(os.path.expanduser("~"), "Downloads")
+
+filename = "downloaded_episodes.json"
+
+# read data from JSON file
+def read_json_file(filename):
+    with open(filename, "r") as file:
+        data = json.load(file)
+    return data
+
+# write data to JSON file
+def write_json_file(filename, data):
+    with open(filename, "w") as file:
+        json.dump(data, file, indent=4, separators=(',', ': '), default=str)
+    return "Data written to file"
 
 def get_anime_episodes(anime_id):
     try:
@@ -126,21 +141,40 @@ def download_subtitles(subtitles_url, file_name):
     except Exception as e:
         print(f"Error downloading subtitles: {e}")
 
-def save_downloaded_episodes(anime_id, episode):
-    try:
-        with open("downloaded_episodes.json", "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {"anime_id": anime_id, "episodes": []}
+def check_if_episode_downloaded(anime_id, episode_id):
+    with open("downloaded_episodes.json", "r") as f:
+        data = json.load(f)
 
-    if data["anime_id"] == anime_id:
-        if episode not in data["episodes"]:
-            data["episodes"] += [episode]
+    array = data.get("anime", {}).get(anime_id, {}).get("episodes", [])
+
+    if episode_id in array:
+        return True
     else:
-        data = {"anime_id": anime_id, "episodes": [episode]}
+        return False
 
-    with open("downloaded_episodes.json", "w") as f:
-        json.dump(data, f)
+def save_downloaded_episodes(anime_id, episode_id):
+    # print(f"Saving episode {episode_id} for anime {anime_id} to the database")
+    data = read_json_file(filename)
+
+    # Get the episodes array
+    episodes = data["anime"][anime_id]["episodes"]
+    
+    # Add the new episode_id and sort the list
+    if episode_id not in episodes:
+        episodes.append(episode_id)
+        episodes.sort()  # Sort in ascending order
+
+    # Write to file with custom formatting
+    with open(filename, 'w') as file:
+        # First create formatted JSON with standard indentation
+        json_content = json.dumps(data, indent=4)
+        # Format arrays to be on single line
+        json_content = re.sub(
+            r'\[\s*([^\]]+?)\s*\]', 
+            lambda m: f"[{', '.join(re.split(r',\s*', m.group(1).strip()))}]", 
+            json_content
+        )
+        file.write(json_content)
 
 if __name__ == "__main__":
 
@@ -161,7 +195,6 @@ if __name__ == "__main__":
         # check if the episodes have already been downloaded
         # if not, download the episodes 
         # if already downloaded, skip them
-
         episodes = range(1, 99)
     elif args.start and args.end:
         episodes = range(args.start, args.end + 1)
@@ -174,29 +207,33 @@ if __name__ == "__main__":
     year = "1997"
     season = "01"
 
-
     for ep in episodes:
-        print(f"\nExtracting information for episode {ep}")
-        episode_title = get_episode_title(anime_info, ep)
-        episode_id = get_episode_id(anime_info, ep) 
-        episode_number = get_episode_number(anime_info, ep)
-        print("Title:", episode_title)
-        print("ID:", episode_id)
-        print("Number:", episode_number)
-
-        # print(f"\nExtracting information for episode {ep}")
+        downloaded = check_if_episode_downloaded(args.anime_id, ep)
+        if downloaded:
+            print(f"Episode {ep} has already been downloaded, skipping...")
+        elif not downloaded:
+            print(f"\nEpisode {ep} has not been downloaded, downloading...")
+            print(f"Extracting information for episode {ep}")
+            episode_title = get_episode_title(anime_info, ep)
+            episode_id = get_episode_id(anime_info, ep) 
+            episode_number = get_episode_number(anime_info, ep)
+            print("Title:", episode_title)
+            print("ID:", episode_id)
+            print("Number:", episode_number)
         
-        data = get_episode_stream_info(f"{args.anime_id}?ep={ep}")
-        # print(data)
-        stream_url = extract_stream_url(data)
-        print(stream_url)
-        subtitles_url = extract_subtitles_url(data)
-        print(subtitles_url)
+            data = get_episode_stream_info(f"{args.anime_id}?ep={ep}")
+            # print(data)
+            stream_url = extract_stream_url(data)
+            print(stream_url)
+            subtitles_url = extract_subtitles_url(data)
+            print(subtitles_url)
 
-        if stream_url:
-            print(f"Downloading episode: {anime_title} ({year}) - S{season}E{ep} - {episode_title}")
-            # download_streams(stream_url, f"{anime_title} ({year}) - S{season}E{episode_number} - {episode_title}.mp4")
-            # if download is successful, add the episode to the list of downloaded episodes
-            save_downloaded_episodes(args.anime_id, ep)
-        # if subtitles_url:
-        #     download_subtitles(subtitles_url, f"{args.slug}-{ep}.vtt")
+            if stream_url:
+                print(f"Downloading episode: {anime_title} ({year}) - S{season}E{ep} - {episode_title}")
+                # download_streams(stream_url, f"{anime_title} ({year}) - S{season}E{episode_number} - {episode_title}.mp4")
+                # if download is successful, add the episode to the list of downloaded episodes
+                save_downloaded_episodes(args.anime_id, ep)
+            # if subtitles_url:
+            #     download_subtitles(subtitles_url, f"{args.slug}-{ep}.vtt")
+        else:
+            print("Error checking if episode has been downloaded")
